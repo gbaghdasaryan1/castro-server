@@ -4,7 +4,7 @@ import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { I18nModule } from './i18n/i18n.module';
-import { TranslationEntity } from './i18n/entities/translation.entity';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -22,12 +22,13 @@ import { TranslationEntity } from './i18n/entities/translation.entity';
         username: config.get('DB_USER', 'postgres'),
         password: config.get('DB_PASS', '1346792846Gg!'),
         database: config.get('DB_NAME', 'castora'),
-        entities: [TranslationEntity],
-        synchronize: true, // false в production!
+        autoLoadEntities: true,
+        synchronize: true, // false in production!
         logging: config.get('NODE_ENV') === 'development',
       }),
     }),
     I18nModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

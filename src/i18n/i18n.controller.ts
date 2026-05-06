@@ -8,6 +8,7 @@ import {
   Param,
   Query,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TranslationEntity } from './entities/translation.entity';
@@ -15,6 +16,7 @@ import { I18nService } from './i18n.service';
 import { CreateTranslationDto } from './dto/create-translation.dto';
 import { UpdateTranslationDto } from './dto/update-translation.dto';
 
+@ApiTags('Translations')
 @Controller('translations')
 export class TranslationController {
   constructor(
@@ -23,7 +25,10 @@ export class TranslationController {
     private readonly i18nService: I18nService,
   ) {}
 
-  // Для Next.js: GET /translations/lang/ru
+  @ApiOperation({
+    summary: 'Get flat key-value map for a language (used by Next.js SSR)',
+  })
+  @ApiQuery({ name: 'namespace', required: false })
   @Get('lang/:lang')
   async getByLang(
     @Param('lang') lang: string,
@@ -32,7 +37,7 @@ export class TranslationController {
     return this.i18nService.getTranslationsForLang(lang, namespace);
   }
 
-  // Для Next.js: GET /translations/lang/ru/namespace/common
+  @ApiOperation({ summary: 'Get translations by language and namespace' })
   @Get('lang/:lang/namespace/:namespace')
   async getByLangAndNamespace(
     @Param('lang') lang: string,
@@ -41,7 +46,9 @@ export class TranslationController {
     return this.i18nService.getTranslationsForLang(lang, namespace);
   }
 
-  // Admin: получить все ключи
+  @ApiOperation({ summary: 'List all translations (admin)' })
+  @ApiQuery({ name: 'namespace', required: false })
+  @ApiQuery({ name: 'lang', required: false })
   @Get()
   async findAll(
     @Query('namespace') namespace?: string,
@@ -53,7 +60,7 @@ export class TranslationController {
     return this.repo.find({ where, order: { namespace: 'ASC', key: 'ASC' } });
   }
 
-  // Admin: создать перевод
+  @ApiOperation({ summary: 'Create a translation (admin)' })
   @Post()
   async create(@Body() dto: CreateTranslationDto) {
     const translation = this.repo.create(dto);
@@ -62,15 +69,15 @@ export class TranslationController {
     return saved;
   }
 
-  // Admin: обновить перевод
+  @ApiOperation({ summary: 'Update a translation (admin)' })
   @Put(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateTranslationDto) {
     await this.repo.update(id, dto);
-    await this.i18nService.reloadTranslations(); // горячая перезагрузка
+    await this.i18nService.reloadTranslations();
     return this.repo.findOne({ where: { id } });
   }
 
-  // Admin: удалить
+  @ApiOperation({ summary: 'Delete a translation (admin)' })
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.repo.delete(id);
@@ -78,7 +85,7 @@ export class TranslationController {
     return { success: true };
   }
 
-  // Admin: bulk upsert (удобно для импорта JSON)
+  @ApiOperation({ summary: 'Bulk upsert translations from JSON (admin)' })
   @Post('bulk')
   async bulkUpsert(@Body() translations: CreateTranslationDto[]) {
     for (const t of translations) {
