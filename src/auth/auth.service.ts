@@ -41,7 +41,9 @@ export class AuthService {
       await this.sendOtp(user.email, 'email_verification');
     } catch {
       await this.usersService.delete(user.id);
-      throw new InternalServerErrorException('Failed to send verification email');
+      throw new InternalServerErrorException(
+        'Failed to send verification email',
+      );
     }
 
     return { message: 'Verification code sent to your email' };
@@ -65,7 +67,8 @@ export class AuthService {
 
   async signin(dto: SigninDto) {
     const user = await this.usersService.findByEmailWithPassword(dto.email);
-    if (!user || !user.password) throw new UnauthorizedException('Invalid credentials');
+    if (!user || !user.password)
+      throw new UnauthorizedException('Invalid credentials');
 
     const match = await bcrypt.compare(dto.password, user.password);
     if (!match) {
@@ -101,6 +104,17 @@ export class AuthService {
     return { message: 'Password updated successfully' };
   }
 
+  async getCurrentUser(user: any) {
+    const found = await this.usersService.findById(user.sub);
+    if (!found) throw new NotFoundException('User not found');
+    return {
+      id: found.id,
+      email: found.email,
+      firstName: found.firstName,
+      lastName: found.lastName,
+    };
+  }
+
   async googleLogin(googleUser: {
     googleId: string;
     email: string;
@@ -111,17 +125,25 @@ export class AuthService {
     return { accessToken: this.issueToken(user.id, user.email) };
   }
 
-  private async sendOtp(email: string, type: 'email_verification' | 'password_reset') {
+  private async sendOtp(
+    email: string,
+    type: 'email_verification' | 'password_reset',
+  ) {
     await this.otpRepo
       .createQueryBuilder()
       .update(OtpEntity)
       .set({ used: true })
-      .where('email = :email AND type = :type AND used = false', { email, type })
+      .where('email = :email AND type = :type AND used = false', {
+        email,
+        type,
+      })
       .execute();
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    await this.otpRepo.save(this.otpRepo.create({ email, code, type, expiresAt }));
+    await this.otpRepo.save(
+      this.otpRepo.create({ email, code, type, expiresAt }),
+    );
     await this.mailService.sendOtp(email, code, type);
   }
 
