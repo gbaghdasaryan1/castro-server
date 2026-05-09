@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  ConflictException,
   NotFoundException,
   InternalServerErrorException,
 } from '@nestjs/common';
@@ -29,21 +30,20 @@ export class AuthService {
   ) {}
 
   async signup(dto: SignupDto) {
+    const existing = await this.usersService.findByEmail(dto.email);
+    if (existing?.isVerified) throw new ConflictException('Email already in use');
+
     const hashed = await bcrypt.hash(dto.password, 10);
-    const user = await this.usersService.create({
-      email: dto.email,
-      password: hashed,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-    });
 
     try {
-      await this.sendOtp(user.email, 'email_verification');
+      await this.sendOtp(dto.email, 'email_verification', {
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        hashedPassword: hashed,
+        role: dto.role,
+      });
     } catch {
-      await this.usersService.delete(user.id);
-      throw new InternalServerErrorException(
-        'Failed to send verification email',
-      );
+      throw new InternalServerErrorException('Failed to send verification email');
     }
 
     return { message: 'Verification code sent to your email' };
@@ -59,9 +59,16 @@ export class AuthService {
     }
 
     await this.otpRepo.update(otp.id, { used: true });
-    const user = await this.usersService.findByEmail(dto.email);
-    if (!user) throw new NotFoundException('User not found');
-    await this.usersService.update(user.id, { isVerified: true });
+
+    const user = await this.usersService.create({
+      email: dto.email,
+      password: otp.pendingHashedPassword ?? undefined,
+      firstName: otp.pendingFirstName ?? undefined,
+      lastName: otp.pendingLastName ?? undefined,
+      role: (otp.pendingRole as 'personal' | 'agency') ?? 'personal',
+      isVerified: true,
+    });
+
     return { accessToken: this.issueToken(user.id, user.email) };
   }
 
@@ -112,6 +119,7 @@ export class AuthService {
       email: found.email,
       firstName: found.firstName,
       lastName: found.lastName,
+      role: found.role,
     };
   }
 
@@ -128,21 +136,33 @@ export class AuthService {
   private async sendOtp(
     email: string,
     type: 'email_verification' | 'password_reset',
+    pendingData?: {
+      firstName?: string;
+      lastName?: string;
+      hashedPassword?: string;
+      role?: string;
+    },
   ) {
     await this.otpRepo
       .createQueryBuilder()
       .update(OtpEntity)
       .set({ used: true })
-      .where('email = :email AND type = :type AND used = false', {
-        email,
-        type,
-      })
+      .where('email = :email AND type = :type AND used = false', { email, type })
       .execute();
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await this.otpRepo.save(
-      this.otpRepo.create({ email, code, type, expiresAt }),
+      this.otpRepo.create({
+        email,
+        code,
+        type,
+        expiresAt,
+        pendingFirstName: pendingData?.firstName ?? null,
+        pendingLastName: pendingData?.lastName ?? null,
+        pendingHashedPassword: pendingData?.hashedPassword ?? null,
+        pendingRole: pendingData?.role ?? null,
+      }),
     );
     await this.mailService.sendOtp(email, code, type);
   }

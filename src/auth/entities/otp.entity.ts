@@ -25,6 +25,18 @@ export class OtpEntity {
   @Column({ default: false })
   used: boolean;
 
+  @Column({ type: 'varchar', nullable: true })
+  pendingFirstName: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  pendingLastName: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  pendingHashedPassword: string | null;
+
+  @Column({ nullable: true, type: 'varchar', length: 20 })
+  pendingRole: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

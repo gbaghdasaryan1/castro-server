@@ -26,6 +26,9 @@ export class UserEntity {
   @Column({ default: false })
   isVerified: boolean;
 
+  @Column({ type: 'varchar', length: 20, default: 'personal' })
+  role: 'personal' | 'agency';
+
   @Column({ nullable: true })
   googleId: string;
 

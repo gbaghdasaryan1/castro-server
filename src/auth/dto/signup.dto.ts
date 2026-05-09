@@ -1,11 +1,5 @@
-import {
-  IsEmail,
-  IsString,
-  MinLength,
-  IsOptional,
-  MaxLength,
-} from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsString, MinLength, MaxLength, IsIn } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class SignupDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -17,15 +11,17 @@ export class SignupDto {
   @MinLength(8)
   password: string;
 
-  @ApiPropertyOptional({ example: 'John' })
-  @IsOptional()
+  @ApiProperty({ example: 'John' })
   @IsString()
   @MaxLength(100)
-  firstName?: string;
+  firstName: string;
 
-  @ApiPropertyOptional({ example: 'Doe' })
-  @IsOptional()
+  @ApiProperty({ example: 'Doe' })
   @IsString()
   @MaxLength(100)
-  lastName?: string;
+  lastName: string;
+
+  @ApiProperty({ enum: ['personal', 'agency'], example: 'personal' })
+  @IsIn(['personal', 'agency'])
+  role: 'personal' | 'agency';
 }
